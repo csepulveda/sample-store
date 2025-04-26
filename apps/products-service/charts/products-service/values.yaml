@@ -1,0 +1,22 @@
+replicaCount: 1
+
+image:
+  repository: your-dockerhub-or-ecr/products-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  className: alb # o nginx
+  annotations: {}
+  hosts:
+    - host: products.example.com
+      paths:
+        - path: /api/products
+          pathType: Prefix
+
+resources: {}
