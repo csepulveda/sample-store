@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 
 	"products-service/internal/handlers"
 	"products-service/internal/repository"
@@ -28,6 +29,12 @@ func main() {
 	productRepo := repository.NewDynamoProductRepository(dynamoClient, productsTable)
 
 	app := fiber.New()
+
+	// Middleware Cors
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+	}))
 
 	// Healthcheck
 	app.Get("/healthz", func(c *fiber.Ctx) error {
