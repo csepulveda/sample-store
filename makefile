@@ -1,3 +1,6 @@
+# ============================================
+# Global Variables
+# ============================================
 
 TF_DIR=deployment/terraform
 AWS_REGION=us-west-2
@@ -9,6 +12,11 @@ DOCKER_IMAGE=$(ECR_URI)/$(ECR_REPOSITORY):$(IMAGE_TAG)
 HELM_DIR=charts/products-service
 HELM_RELEASE=products-service
 NAMESPACE=microservices-system
+COMPOSE_FILE=docker-compose.yaml
+
+# ============================================
+# Infrastructure - OpenTofu
+# ============================================
 
 tf-init:
 	cd $(TF_DIR) && tofu init
@@ -55,6 +63,22 @@ helm-uninstall:
 	helm uninstall $(HELM_RELEASE) --namespace $(NAMESPACE)
 
 # ============================================
+# Local Development - Docker Compose
+# ============================================
+
+compose-up:
+	docker-compose -f $(COMPOSE_FILE) up --build
+
+compose-down:
+	docker-compose -f $(COMPOSE_FILE) down
+
+compose-logs:
+	docker-compose -f $(COMPOSE_FILE) logs -f
+
+compose-restart:
+	docker-compose -f $(COMPOSE_FILE) restart
+
+# ============================================
 # Utilities
 # ============================================
 
@@ -64,24 +88,30 @@ clean:
 help:
 	@echo "Global Makefile - Usage:"
 	@echo ""
-	@echo "Infraestructura:"
-	@echo "  make tf-init        - Initialize OpenTofu"
-	@echo "  make tf-plan        - Plan OpenTofu deployment"
-	@echo "  make tf-apply       - Apply OpenTofu changes"
-	@echo "  make tf-destroy     - Destroy OpenTofu resources"
+	@echo "Infrastructure:"
+	@echo "  make tf-init        Initialize OpenTofu"
+	@echo "  make tf-plan        Plan OpenTofu deployment"
+	@echo "  make tf-apply       Apply OpenTofu changes"
+	@echo "  make tf-destroy     Destroy OpenTofu resources"
 	@echo ""
 	@echo "Docker:"
-	@echo "  make docker-build   - Build Docker image"
-	@echo "  make docker-login   - Login to AWS ECR"
-	@echo "  make docker-push    - Push Docker image to ECR"
+	@echo "  make docker-build   Build Docker image"
+	@echo "  make docker-login   Login to AWS ECR"
+	@echo "  make docker-push    Push Docker image to ECR"
 	@echo ""
 	@echo "Helm:"
-	@echo "  make helm-install   - Install Helm release"
-	@echo "  make helm-upgrade   - Upgrade Helm release"
+	@echo "  make helm-install   Install Helm release"
+	@echo "  make helm-upgrade   Upgrade Helm release"
 	@echo "  make helm-uninstall - Uninstall Helm release"
 	@echo ""
-	@echo "Utilidades:"
-	@echo "  make clean          - Clean .terraform and locks"
-	@echo "  make help           - Show this help message"
+	@echo "Local Development:"
+	@echo "  make compose-up     Start local dev environment with docker-compose"
+	@echo "  make compose-down   Stop and remove docker-compose containers"
+	@echo "  make compose-logs   Show docker-compose logs"
+	@echo "  make compose-restart Restart all containers"
+	@echo ""
+	@echo "Utilities:"
+	@echo "  make clean          Clean terraform files"
+	@echo "  make help           Show this help message"
 
-.PHONY: tf-init tf-plan tf-apply tf-destroy tf-validate tf-fmt docker-build docker-login docker-push helm-install helm-upgrade helm-uninstall clean help
+.PHONY: tf-init tf-plan tf-apply tf-destroy tf-validate tf-fmt docker-build docker-login docker-push helm-install helm-upgrade helm-uninstall compose-up compose-down compose-logs compose-restart clean help

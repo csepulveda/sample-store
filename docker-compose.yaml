@@ -1,0 +1,43 @@
+version: '3.9'
+
+services:
+  products-service:
+    build:
+      context: ./apps/products-service
+    ports:
+      - "8080:8080"
+    environment:
+      - AWS_REGION=us-west-2
+      - PRODUCTS_TABLE=products
+      - PORT=8080
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+
+  orders-service:
+    build:
+      context: ./apps/orders-service
+    ports:
+      - "8081:8080"
+    environment:
+      - AWS_REGION=us-west-2
+      - ORDERS_TABLE=orders
+      - PORT=8080
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+
+  ui-web:
+    build:
+      context: ./apps/ui-web
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://products-service:8080
+
+  ui-backoffice:
+    build:
+      context: ./apps/ui-backoffice
+    ports:
+      - "3001:3000"
+    environment:
+      - PRODUCT_API_BASE_URL=http://products-service:8080
+      - ORDER_API_BASE_URL=http://orders-service:8080

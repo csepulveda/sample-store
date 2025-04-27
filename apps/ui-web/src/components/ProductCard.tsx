@@ -1,20 +1,28 @@
+"use client"
+
 import { Product } from "@/services/products"
-import { useCart } from "@/context/cart"
+import { useCart } from "@/context"
 
 export function ProductCard({ product }: { product: Product }) {
   const { dispatch } = useCart()
 
+  const handleAddToCart = () => {
+    console.log("CLICK on product:", product.name)
+    dispatch({ type: "ADD_TO_CART", payload: { productId: product.id, quantity: 1 } })
+  }
+
   return (
-    <div className="border rounded-lg p-4 shadow-md flex flex-col bg-zinc-900">
-      <h2 className="text-xl font-semibold text-white">{product.name}</h2>
-      <p className="text-gray-400">{product.description}</p>
-      <p className="mt-2 font-bold text-white">${product.price}</p>
-      <p className="text-sm text-gray-500">Stock: {product.stock}</p>
+    <div className="bg-zinc-800 p-4 rounded-lg flex flex-col justify-between">
+      <div>
+        <h3 className="text-xl font-bold text-white mb-2">{product.name}</h3>
+        <p className="text-white text-sm mb-4">{product.description}</p>
+        <p className="text-white font-bold">${product.price.toFixed(2)}</p>
+      </div>
       <button
-        onClick={() => dispatch({ type: "ADD_ITEM", product })}
-        className="mt-4 bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-500"
+        onClick={handleAddToCart}
+        className="mt-4 bg-green-600 hover:bg-green-500 text-white py-2 rounded"
       >
-        Add to cart
+        Add to Cart
       </button>
     </div>
   )

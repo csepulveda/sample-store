@@ -1,68 +1,64 @@
-import { useCart } from "@/context/cart"
+"use client"
+
+import { useCart } from "@/context"
 import { createOrder } from "@/services/orders"
+import { useState } from "react"
 
 export function CartSummary() {
-  const { state, dispatch } = useCart()
-
-  const total = state.items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  )
+  const { cartItems, dispatch } = useCart()
+  const [loading, setLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const handleCheckout = async () => {
+    if (cartItems.length === 0) {
+      setErrorMessage("Your cart is empty.")
+      return
+    }
+
+    setLoading(true)
+    setErrorMessage(null)
+    setSuccessMessage(null)
+
     try {
-      const payload = {
-        items: state.items.map(item => ({
-          productId: item.id,
-          quantity: item.quantity,
-        })),
-      }
-      await createOrder(payload)
+      await createOrder(cartItems)
       dispatch({ type: "CLEAR_CART" })
-      alert("Order created successfully")
-    } catch (err) {
-      console.error(err)
-      alert("Error creating order")
+      setSuccessMessage("Order created successfully!")
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to create order")
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div className="bg-zinc-800 text-white p-4 rounded-lg shadow-md mt-8">
-      <h2 className="text-lg font-semibold mb-4">Cart</h2>
-      {state.items.length === 0 ? (
-        <p className="text-gray-400">Cart is empty</p>
+    <div className="bg-zinc-800 p-6 rounded-lg">
+      <h2 className="text-2xl font-bold mb-4 text-white">Cart Summary</h2>
+
+      {cartItems.length === 0 ? (
+        <p className="text-white mb-4">Your cart is empty.</p>
       ) : (
-        <>
-          <ul className="space-y-2">
-            {state.items.map(item => (
-              <li key={item.id} className="flex justify-between">
-                <span>
-                  {item.name} x {item.quantity}
-                </span>
-                <span>${(item.price * item.quantity).toFixed(2)}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-4 flex justify-between font-bold border-t border-zinc-600 pt-2">
-            <span>Total</span>
-            <span>${total.toFixed(2)}</span>
-          </div>
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={() => dispatch({ type: "CLEAR_CART" })}
-              className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded"
-            >
-              Clear cart
-            </button>
-            <button
-              onClick={handleCheckout}
-              className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded"
-            >
-              Checkout
-            </button>
-          </div>
-        </>
+        <ul className="mb-4">
+          {cartItems.map((item, idx) => (
+            <li key={idx} className="text-white">
+              {item.productId} - Qty: {item.quantity}
+            </li>
+          ))}
+        </ul>
       )}
+
+      {errorMessage && <p className="text-red-500 mb-4">{errorMessage}</p>}
+      {successMessage && <p className="text-green-500 mb-4">{successMessage}</p>}
+
+      <button
+        onClick={handleCheckout}
+        disabled={loading || cartItems.length === 0}
+        className={`w-full ${
+          loading ? "bg-gray-600" : "bg-blue-600 hover:bg-blue-500"
+        } text-white font-semibold py-2 rounded`}
+      >
+        {loading ? "Processing..." : "Checkout"}
+      </button>
     </div>
   )
 }

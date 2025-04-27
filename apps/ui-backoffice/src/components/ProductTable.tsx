@@ -1,3 +1,5 @@
+"use client"
+
 import { Product, deleteProduct, updateProduct } from "@/services/products"
 import { useState } from "react"
 
