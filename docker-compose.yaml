@@ -31,7 +31,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://products-service:8080
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
 
   ui-backoffice:
     build:
@@ -41,3 +41,4 @@ services:
     environment:
       - PRODUCT_API_BASE_URL=http://products-service:8080
       - ORDER_API_BASE_URL=http://orders-service:8080
+      - NEXT_PUBLIC_API_URL=http://localhost:3001

@@ -38,7 +38,7 @@ export default function ProductsPage({ initialProducts }: { initialProducts: Pro
 
   return (
     <div className="container mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-8 text-white">Manage Products</h1>
+      <h1 className="text-3xl font-bold mb-8">Manage Products</h1>
 
       <button
         onClick={() => {

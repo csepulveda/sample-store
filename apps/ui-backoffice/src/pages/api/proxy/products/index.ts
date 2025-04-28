@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next"
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const baseUrl = process.env.PRODUCT_API_BASE_URL || "http://localhost:8080"
+  const baseUrl = process.env.PRODUCT_API_BASE_URL || "http://products-service:8080"
 
   if (req.method === "GET") {
     const response = await fetch(`${baseUrl}/api/products`)
