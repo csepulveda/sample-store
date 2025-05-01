@@ -30,6 +30,11 @@ resource "helm_release" "products-service" {
   }
 
   set {
+    name  = "image.tag"
+    value = "v.0.0.4"
+  }
+
+  set {
     name  = "AWS_REGION"
     value = local.region
   }
@@ -59,6 +64,11 @@ resource "helm_release" "products-worker" {
   set {
     name  = "image.repository"
     value = "ghcr.io/csepulveda/products-worker"
+  }
+
+  set {
+    name  = "image.tag"
+    value = "v.0.0.4"
   }
 
   set {
@@ -96,6 +106,11 @@ resource "helm_release" "orders-service" {
   set {
     name  = "image.repository"
     value = "ghcr.io/csepulveda/orders-service"
+  }
+
+  set {
+    name  = "image.tag"
+    value = "v.0.0.4"
   }
 
   set {
