@@ -4,6 +4,7 @@ import (
 	"orders-service/internal/domain"
 	"orders-service/internal/publisher"
 	"orders-service/internal/repository"
+	"orders-service/internal/tracing"
 
 	"time"
 
@@ -14,11 +15,15 @@ import (
 // CreateOrderHandler handles POST /api/orders
 func CreateOrderHandler(repo repository.OrderRepository, pub publisher.OrderPublisher) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		ctx, span := tracing.NewSpan(c.UserContext(), "CreateOrderHandler")
+		defer span.End()
+
 		var input struct {
 			Items []domain.OrderItem `json:"items"`
 		}
 
 		if err := c.BodyParser(&input); err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Invalid request body",
 			})
@@ -38,13 +43,15 @@ func CreateOrderHandler(repo repository.OrderRepository, pub publisher.OrderPubl
 			Deleted:   false,
 		}
 
-		if err := repo.Create(c.UserContext(), &order); err != nil {
+		if err := repo.Create(ctx, &order); err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})
 		}
 
-		if err := pub.PublishOrderCreated(c.UserContext(), order); err != nil {
+		if err := pub.PublishOrderCreated(ctx, order); err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Order created but failed to publish event: " + err.Error(),
 			})
@@ -57,11 +64,19 @@ func CreateOrderHandler(repo repository.OrderRepository, pub publisher.OrderPubl
 // ListOrdersHandler handles GET /api/orders
 func ListOrdersHandler(repo repository.OrderRepository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		ctx, span := tracing.NewSpan(c.UserContext(), "ListOrdersHandler")
+		defer span.End()
+
 		id := c.Params("id")
 
+		span.SetAttributes(
+			tracing.StringAttribute("orderId", id),
+		)
+
 		if id != "" {
-			order, err := repo.GetByID(c.UserContext(), id)
+			order, err := repo.GetByID(ctx, id)
 			if err != nil {
+				span.RecordError(err)
 				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 					"error": "Order not found",
 				})
@@ -69,8 +84,9 @@ func ListOrdersHandler(repo repository.OrderRepository) fiber.Handler {
 			return c.JSON(order)
 		}
 
-		orders, err := repo.GetAll(c.UserContext())
+		orders, err := repo.GetAll(ctx)
 		if err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})
@@ -83,16 +99,24 @@ func ListOrdersHandler(repo repository.OrderRepository) fiber.Handler {
 // PatchOrderHandler handles PATCH /api/orders/:id
 func PatchOrderHandler(repo repository.OrderRepository, pub publisher.OrderPublisher) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		id := c.Params("id")
+		ctx, span := tracing.NewSpan(c.UserContext(), "PatchOrderHandler")
+		defer span.End()
 
-		order, err := repo.GetByID(c.UserContext(), id)
+		id := c.Params("id")
+		span.SetAttributes(
+			tracing.StringAttribute("orderId", id),
+		)
+
+		order, err := repo.GetByID(ctx, id)
 		if err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "Order not found",
 			})
 		}
 
 		if order.Deleted {
+			span.RecordError(err)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Cannot modify a deleted order",
 			})
@@ -100,6 +124,7 @@ func PatchOrderHandler(repo repository.OrderRepository, pub publisher.OrderPubli
 
 		patchData := make(map[string]interface{})
 		if err := c.BodyParser(&patchData); err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Invalid request body",
 			})
@@ -126,7 +151,8 @@ func PatchOrderHandler(repo repository.OrderRepository, pub publisher.OrderPubli
 			order.Status = status
 		}
 
-		if err := repo.Update(c.UserContext(), order); err != nil {
+		if err := repo.Update(ctx, order); err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})
@@ -135,13 +161,15 @@ func PatchOrderHandler(repo repository.OrderRepository, pub publisher.OrderPubli
 		// Publish events if necessary
 		switch order.Status {
 		case "canceled":
-			if err := pub.PublishOrderCanceled(c.UserContext(), *order); err != nil {
+			if err := pub.PublishOrderCanceled(ctx, *order); err != nil {
+				span.RecordError(err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Order updated but failed to publish cancel event: " + err.Error(),
 				})
 			}
 		case "returned":
-			if err := pub.PublishOrderCanceled(c.UserContext(), *order); err != nil {
+			if err := pub.PublishOrderCanceled(ctx, *order); err != nil {
+				span.RecordError(err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Order updated but failed to publish return event: " + err.Error(),
 				})
@@ -155,10 +183,17 @@ func PatchOrderHandler(repo repository.OrderRepository, pub publisher.OrderPubli
 // DeleteOrderHandler handles DELETE /api/orders/:id
 func DeleteOrderHandler(repo repository.OrderRepository, pub publisher.OrderPublisher) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		id := c.Params("id")
+		ctx, span := tracing.NewSpan(c.UserContext(), "DeleteOrderHandler")
+		defer span.End()
 
-		order, err := repo.GetByID(c.UserContext(), id)
+		id := c.Params("id")
+		span.SetAttributes(
+			tracing.StringAttribute("orderId", id),
+		)
+
+		order, err := repo.GetByID(ctx, id)
 		if err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "Order not found",
 			})
@@ -167,13 +202,15 @@ func DeleteOrderHandler(repo repository.OrderRepository, pub publisher.OrderPubl
 		if order.Status != "delivered" && order.Status != "canceled" && order.Status != "returned" {
 			order.Status = "canceled"
 
-			if err := repo.Update(c.UserContext(), order); err != nil {
+			if err := repo.Update(ctx, order); err != nil {
+				span.RecordError(err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Failed to cancel before delete: " + err.Error(),
 				})
 			}
 
-			if err := pub.PublishOrderCanceled(c.UserContext(), *order); err != nil {
+			if err := pub.PublishOrderCanceled(ctx, *order); err != nil {
+				span.RecordError(err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Failed to publish cancel event: " + err.Error(),
 				})
@@ -181,7 +218,8 @@ func DeleteOrderHandler(repo repository.OrderRepository, pub publisher.OrderPubl
 		}
 
 		order.Deleted = true
-		if err := repo.Update(c.UserContext(), order); err != nil {
+		if err := repo.Update(ctx, order); err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Failed to soft-delete order: " + err.Error(),
 			})

@@ -7,7 +7,7 @@ metadata:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
     alb.ingress.kubernetes.io/backend-protocol: HTTP
-    alb.ingress.kubernetes.io/group.name: ui
+    alb.ingress.kubernetes.io/group.name: ui-web
 spec:
   ingressClassName: alb
   rules:
@@ -19,4 +19,4 @@ spec:
               service:
                 name: ui-web
                 port:
-                  number: 80
+                  number: {{ .Values.service.port }}

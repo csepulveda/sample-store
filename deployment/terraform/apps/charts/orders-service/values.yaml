@@ -9,6 +9,12 @@ service:
   type: ClusterIP
   port: 8080
 
+serviceAccountName: orders-service
+
+serviceAccountAnnotations:
+  eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/your-iam-role
+  example.com/custom: custom-value
+
 AWS_REGION: us-west-2
 ORDERS_TABLE: orders
 PORT: "8080"

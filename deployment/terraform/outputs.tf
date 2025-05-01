@@ -37,3 +37,18 @@ output "cluster_name" {
   description = "EKS cluster name"
   value       = module.eks.cluster_name
 }
+
+output "products_service_service_account_role_arn" {
+  description = "Service account ARN for the products service"
+  value       = module.products_service_irsa_role.iam_role_arn
+}
+
+output "orders_service_service_account_role_arn" {
+  description = "Service account ARN for the orders service"
+  value       = module.orders_service_irsa_role.iam_role_arn
+}
+
+output "products_worker_service_account_role_arn" {
+  description = "Service account ARN for the products worker"
+  value       = module.products_worker_irsa_role.iam_role_arn
+}

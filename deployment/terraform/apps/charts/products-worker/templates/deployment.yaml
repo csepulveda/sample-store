@@ -14,6 +14,7 @@ spec:
       labels:
         app: products-worker
     spec:
+      serviceAccountName: {{ .Values.serviceAccountName }}
       containers:
         - name: products-worker
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

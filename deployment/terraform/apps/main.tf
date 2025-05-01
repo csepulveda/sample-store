@@ -19,12 +19,14 @@ locals {
 }
 
 resource "helm_release" "products-service" {
-  name  = "products-service"
-  chart = "./charts/products-service"
+  name             = "products-service"
+  chart            = "./charts/products-service"
+  namespace        = "sample-store"
+  create_namespace = true
 
   set {
     name  = "image.repository"
-    value = aws_ecr_repository.products-service.repository_url
+    value = "ghcr.io/csepulveda/products-service"
   }
 
   set {
@@ -34,22 +36,29 @@ resource "helm_release" "products-service" {
 
   set {
     name  = "TEMPO_ENDPOINT"
-    value = "http://tempo.tempo.svc.cluster.local:4317"
+    value = "tempo.tempo.svc.cluster.local:4318"
   }
 
   set {
     name  = "PRODUCTS_TABLE"
     value = data.terraform_remote_state.eks.outputs.products_table_name
   }
+
+  set {
+    name  = "serviceAccountAnnotations.eks\\.amazonaws\\.com/role-arn"
+    value = data.terraform_remote_state.eks.outputs.products_service_service_account_role_arn
+  }
 }
 
 resource "helm_release" "products-worker" {
-  name  = "products-worker"
-  chart = "./charts/products-worker"
+  name             = "products-worker"
+  chart            = "./charts/products-worker"
+  namespace        = "sample-store"
+  create_namespace = true
 
   set {
     name  = "image.repository"
-    value = aws_ecr_repository.products-worker.repository_url
+    value = "ghcr.io/csepulveda/products-worker"
   }
 
   set {
@@ -59,7 +68,7 @@ resource "helm_release" "products-worker" {
 
   set {
     name  = "TEMPO_ENDPOINT"
-    value = "http://tempo.tempo.svc.cluster.local:4317"
+    value = "tempo.tempo.svc.cluster.local:4318"
   }
 
   set {
@@ -71,15 +80,22 @@ resource "helm_release" "products-worker" {
     name  = "PRODUCTS_TABLE"
     value = data.terraform_remote_state.eks.outputs.products_table_name
   }
+
+  set {
+    name  = "serviceAccountAnnotations.eks\\.amazonaws\\.com/role-arn"
+    value = data.terraform_remote_state.eks.outputs.products_worker_service_account_role_arn
+  }
 }
 
 resource "helm_release" "orders-service" {
-  name  = "orders-service"
-  chart = "./charts/orders-service"
+  name             = "orders-service"
+  chart            = "./charts/orders-service"
+  namespace        = "sample-store"
+  create_namespace = true
 
   set {
     name  = "image.repository"
-    value = aws_ecr_repository.orders-service.repository_url
+    value = "ghcr.io/csepulveda/orders-service"
   }
 
   set {
@@ -89,7 +105,7 @@ resource "helm_release" "orders-service" {
 
   set {
     name  = "TEMPO_ENDPOINT"
-    value = "http://tempo.tempo.svc.cluster.local:4317"
+    value = "tempo.tempo.svc.cluster.local:4318"
   }
 
   set {
@@ -101,6 +117,68 @@ resource "helm_release" "orders-service" {
     name  = "ORDERS_TABLE"
     value = data.terraform_remote_state.eks.outputs.orders_table_name
   }
+
+  set {
+    name  = "serviceAccountAnnotations.eks\\.amazonaws\\.com/role-arn"
+    value = data.terraform_remote_state.eks.outputs.orders_service_service_account_role_arn
+  }
+
 }
 
 
+resource "helm_release" "ui-web" {
+  name             = "ui-web"
+  chart            = "./charts/ui-web"
+  namespace        = "sample-store"
+  create_namespace = true
+
+
+  set {
+    name  = "image.repository"
+    value = "ghcr.io/csepulveda/ui-web"
+  }
+
+  set {
+    name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+    value = "http://tempo.tempo.svc.cluster.local:4318/v1/traces"
+  }
+
+  set {
+    name  = "ORDER_API_BASE_URL"
+    value = "http://orders-service.sample-store.svc.cluster.local:8080"
+  }
+
+  set {
+    name  = "PRODUCT_API_BASE_URL"
+    value = "http://products-service.sample-store.svc.cluster.local:8080"
+  }
+}
+
+
+resource "helm_release" "ui-backoffice" {
+  name             = "ui-backoffice"
+  chart            = "./charts/ui-backoffice"
+  namespace        = "sample-store"
+  create_namespace = true
+
+  set {
+    name  = "image.repository"
+    value = "ghcr.io/csepulveda/ui-backoffice"
+  }
+
+  set {
+    name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+    value = "http://tempo.tempo.svc.cluster.local:4318/v1/traces"
+  }
+
+  set {
+    name  = "ORDER_API_BASE_URL"
+    value = "http://orders-service.sample-store.svc.cluster.local:8080"
+  }
+
+  set {
+    name  = "PRODUCT_API_BASE_URL"
+    value = "http://products-service.sample-store.svc.cluster.local:8080"
+  }
+
+}

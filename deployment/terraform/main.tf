@@ -269,7 +269,7 @@ resource "kubernetes_manifest" "node_pool" {
 module "ebs_cni_irsa_role" {
   source = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
 
-  role_name = "aws-ebs-csi-driver"
+  role_name = format("%s-aws-ebs-csi-driver", local.name)
 
   attach_ebs_csi_policy = true
 
@@ -389,7 +389,7 @@ resource "aws_sqs_queue_policy" "allow_sns" {
 module "alb_irsa_role" {
   source = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
 
-  role_name                              = "aws-load-balancer-controller"
+  role_name                              = format("%s-aws-load-balancer-controller", local.name)
   attach_load_balancer_controller_policy = true
 
   oidc_providers = {
@@ -512,7 +512,7 @@ resource "aws_iam_policy" "loki_s3_access" {
 module "loki_irsa_role" {
   source = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
 
-  role_name = "loki"
+  role_name = format("%s-loki", local.name)
 
   role_policy_arns = {
     policy = aws_iam_policy.loki_s3_access.arn
@@ -533,7 +533,7 @@ module "loki_irsa_role" {
 module "tempo_irsa_role" {
   source = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
 
-  role_name = "tempo"
+  role_name = format("%s-tempo", local.name)
 
   role_policy_arns = {
     policy = aws_iam_policy.tempo_s3_access.arn
@@ -554,7 +554,7 @@ module "tempo_irsa_role" {
 module "thanos_irsa_role" {
   source = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
 
-  role_name = "thanos"
+  role_name = format("%s-thanos", local.name)
 
   role_policy_arns = {
     policy = aws_iam_policy.thanos_s3_access.arn
@@ -582,6 +582,7 @@ resource "helm_release" "prometheus_stack" {
   chart            = "kube-prometheus-stack"
   create_namespace = true
   wait             = true
+  wait_for_jobs    = true
 
   values = [
     <<-EOT
@@ -759,4 +760,135 @@ resource "helm_release" "tempo" {
   ]
   depends_on = [module.tempo_irsa_role]
 
+}
+
+
+################################################################################
+# Applications service accounts
+################################################################################
+resource "aws_iam_policy" "products_service" {
+  name        = "products-service-policy"
+  description = "Allow products service access to DynamoDB and SQS"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+        ]
+        Resource = [
+          aws_dynamodb_table.products.arn
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "products_worker" {
+  name        = "products-worker-policy"
+  description = "Allow products worker access to DynamoDB and SQS"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+        ]
+        Resource = [
+          aws_sqs_queue.products.arn,
+          aws_dynamodb_table.products.arn
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "orders_service" {
+  name        = "orders-service-policy"
+  description = "Allow orders service access to DynamoDB and SNS"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "sns:Publish",
+        ]
+        Resource = [
+          aws_dynamodb_table.orders.arn,
+          aws_sns_topic.orders.arn
+        ]
+      }
+    ]
+  })
+}
+
+
+module "products_service_irsa_role" {
+  source = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+
+  role_name = format("%s-%s", local.name, "products-service")
+  role_policy_arns = {
+    policy = aws_iam_policy.products_service.arn
+  }
+
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["sample-store:products-service"]
+    }
+  }
+
+  tags       = local.tags
+  depends_on = [module.eks]
+}
+
+module "products_worker_irsa_role" {
+  source = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+
+  role_name = format("%s-%s", local.name, "products-worker")
+  role_policy_arns = {
+    policy = aws_iam_policy.products_worker.arn
+  }
+
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["sample-store:products-worker"]
+    }
+  }
+
+  tags       = local.tags
+  depends_on = [module.eks]
+}
+
+module "orders_service_irsa_role" {
+  source = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+
+  role_name = format("%s-%s", local.name, "orders-service")
+  role_policy_arns = {
+    policy = aws_iam_policy.orders_service.arn
+  }
+
+
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["sample-store:orders-service"]
+    }
+  }
+
+  tags       = local.tags
+  depends_on = [module.eks]
 }

@@ -18,6 +18,7 @@ func CreateProductHandler(repo repository.ProductRepository) fiber.Handler {
 		var product domain.Product
 
 		if err := c.BodyParser(&product); err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Invalid request body",
 			})
@@ -27,6 +28,7 @@ func CreateProductHandler(repo repository.ProductRepository) fiber.Handler {
 		product.ID = uuid.New().String()
 
 		if err := repo.Create(ctx, &product); err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})
@@ -49,6 +51,7 @@ func ListProductsHandler(repo repository.ProductRepository) fiber.Handler {
 		if id != "" {
 			product, err := repo.GetByID(ctx, id)
 			if err != nil {
+				span.RecordError(err)
 				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 					"error": "Product not found",
 				})
@@ -58,6 +61,7 @@ func ListProductsHandler(repo repository.ProductRepository) fiber.Handler {
 
 		products, err := repo.GetAll(ctx)
 		if err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})
@@ -80,12 +84,14 @@ func UpdateProductHandler(repo repository.ProductRepository) fiber.Handler {
 
 		product, err := repo.GetByID(ctx, id)
 		if err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "Product not found",
 			})
 		}
 
 		if err := c.BodyParser(product); err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Invalid request body",
 			})
@@ -94,6 +100,7 @@ func UpdateProductHandler(repo repository.ProductRepository) fiber.Handler {
 		product.ID = id // aseguramos que no se modifique el ID
 
 		if err := repo.Update(ctx, product); err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})
@@ -116,6 +123,7 @@ func PatchProductHandler(repo repository.ProductRepository) fiber.Handler {
 
 		product, err := repo.GetByID(ctx, id)
 		if err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "Product not found",
 			})
@@ -123,6 +131,7 @@ func PatchProductHandler(repo repository.ProductRepository) fiber.Handler {
 
 		patchData := make(map[string]interface{})
 		if err := c.BodyParser(&patchData); err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Invalid request body",
 			})
@@ -142,6 +151,7 @@ func PatchProductHandler(repo repository.ProductRepository) fiber.Handler {
 		}
 
 		if err := repo.Update(ctx, product); err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})
@@ -163,6 +173,7 @@ func DeleteProductHandler(repo repository.ProductRepository) fiber.Handler {
 		)
 
 		if err := repo.Delete(ctx, id); err != nil {
+			span.RecordError(err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})

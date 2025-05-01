@@ -52,6 +52,7 @@ func processMessage(ctx context.Context, client *sqs.Client, queueURL string, ms
 	defer span.End()
 
 	if err := handler.HandleMessage(ctx, sns.Message); err != nil {
+		span.RecordError(err)
 		return err
 	}
 
@@ -59,5 +60,8 @@ func processMessage(ctx context.Context, client *sqs.Client, queueURL string, ms
 		QueueUrl:      &queueURL,
 		ReceiptHandle: msg.ReceiptHandle,
 	})
+	if err != nil {
+		span.RecordError(err)
+	}
 	return err
 }
