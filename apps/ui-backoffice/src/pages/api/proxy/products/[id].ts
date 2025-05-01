@@ -1,25 +1,45 @@
+import "@/otel"
 import type { NextApiRequest, NextApiResponse } from "next"
+import { context, trace, propagation } from "@opentelemetry/api"
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const tracer = trace.getTracer("ui-backoffice")
   const { id } = req.query
   const baseUrl = process.env.PRODUCT_API_BASE_URL || "http://localhost:8080"
 
-  if (req.method === "PATCH") {
-    const response = await fetch(`${baseUrl}/api/products/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req.body),
-    })
-    const data = await response.json()
-    return res.status(response.status).json(data)
-  }
+  return tracer.startActiveSpan("proxy_product_id", {}, context.active(), async (span) => {
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" }
+      propagation.inject(context.active(), headers)
 
-  if (req.method === "DELETE") {
-    const response = await fetch(`${baseUrl}/api/products/${id}`, {
-      method: "DELETE",
-    })
-    return res.status(response.status).end()
-  }
+      if (req.method === "PATCH") {
+        const response = await fetch(`${baseUrl}/api/products/${id}`, {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify(req.body),
+        })
+        const data = await response.json()
+        span.setStatus({ code: 0 })
+        return res.status(response.status).json(data)
+      }
 
-  return res.status(405).end()
+      if (req.method === "DELETE") {
+        const response = await fetch(`${baseUrl}/api/products/${id}`, {
+          method: "DELETE",
+          headers,
+        })
+        span.setStatus({ code: 0 })
+        return res.status(response.status).end()
+      }
+
+      span.setStatus({ code: 1, message: "Method not allowed" })
+      return res.status(405).end()
+    } catch (error) {
+      span.recordException(error as Error)
+      span.setStatus({ code: 2, message: "Unexpected error" })
+      return res.status(500).json({ error: "Internal Server Error" })
+    } finally {
+      span.end()
+    }
+  })
 }

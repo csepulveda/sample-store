@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"orders-service/internal/domain"
+	"orders-service/internal/publisher"
 	"orders-service/internal/repository"
 
 	"time"
@@ -11,7 +12,7 @@ import (
 )
 
 // CreateOrderHandler handles POST /api/orders
-func CreateOrderHandler(repo repository.OrderRepository) fiber.Handler {
+func CreateOrderHandler(repo repository.OrderRepository, pub publisher.OrderPublisher) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var input struct {
 			Items []domain.OrderItem `json:"items"`
@@ -34,11 +35,18 @@ func CreateOrderHandler(repo repository.OrderRepository) fiber.Handler {
 			Status:    "created",
 			CreatedAt: time.Now().UTC().Format(time.RFC3339),
 			Items:     input.Items,
+			Deleted:   false,
 		}
 
-		if err := repo.Create(&order); err != nil {
+		if err := repo.Create(c.UserContext(), &order); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
+			})
+		}
+
+		if err := pub.PublishOrderCreated(c.UserContext(), order); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Order created but failed to publish event: " + err.Error(),
 			})
 		}
 
@@ -52,7 +60,7 @@ func ListOrdersHandler(repo repository.OrderRepository) fiber.Handler {
 		id := c.Params("id")
 
 		if id != "" {
-			order, err := repo.GetByID(id)
+			order, err := repo.GetByID(c.UserContext(), id)
 			if err != nil {
 				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 					"error": "Order not found",
@@ -61,7 +69,7 @@ func ListOrdersHandler(repo repository.OrderRepository) fiber.Handler {
 			return c.JSON(order)
 		}
 
-		orders, err := repo.GetAll()
+		orders, err := repo.GetAll(c.UserContext())
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
@@ -73,14 +81,20 @@ func ListOrdersHandler(repo repository.OrderRepository) fiber.Handler {
 }
 
 // PatchOrderHandler handles PATCH /api/orders/:id
-func PatchOrderHandler(repo repository.OrderRepository) fiber.Handler {
+func PatchOrderHandler(repo repository.OrderRepository, pub publisher.OrderPublisher) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		id := c.Params("id")
 
-		order, err := repo.GetByID(id)
+		order, err := repo.GetByID(c.UserContext(), id)
 		if err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "Order not found",
+			})
+		}
+
+		if order.Deleted {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Cannot modify a deleted order",
 			})
 		}
 
@@ -92,13 +106,46 @@ func PatchOrderHandler(repo repository.OrderRepository) fiber.Handler {
 		}
 
 		if status, ok := patchData["status"].(string); ok {
+			validTransition := true
+
+			switch order.Status {
+			case "canceled", "returned":
+				validTransition = false
+			case "delivered":
+				validTransition = (status == "returned")
+			default:
+				validTransition = true
+			}
+
+			if !validTransition {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "Invalid state transition",
+				})
+			}
+
 			order.Status = status
 		}
 
-		if err := repo.Update(order); err != nil {
+		if err := repo.Update(c.UserContext(), order); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})
+		}
+
+		// Publish events if necessary
+		switch order.Status {
+		case "canceled":
+			if err := pub.PublishOrderCanceled(c.UserContext(), *order); err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Order updated but failed to publish cancel event: " + err.Error(),
+				})
+			}
+		case "returned":
+			if err := pub.PublishOrderCanceled(c.UserContext(), *order); err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Order updated but failed to publish return event: " + err.Error(),
+				})
+			}
 		}
 
 		return c.JSON(order)
@@ -106,13 +153,37 @@ func PatchOrderHandler(repo repository.OrderRepository) fiber.Handler {
 }
 
 // DeleteOrderHandler handles DELETE /api/orders/:id
-func DeleteOrderHandler(repo repository.OrderRepository) fiber.Handler {
+func DeleteOrderHandler(repo repository.OrderRepository, pub publisher.OrderPublisher) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		id := c.Params("id")
 
-		if err := repo.Delete(id); err != nil {
+		order, err := repo.GetByID(c.UserContext(), id)
+		if err != nil {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Order not found",
+			})
+		}
+
+		if order.Status != "delivered" && order.Status != "canceled" && order.Status != "returned" {
+			order.Status = "canceled"
+
+			if err := repo.Update(c.UserContext(), order); err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Failed to cancel before delete: " + err.Error(),
+				})
+			}
+
+			if err := pub.PublishOrderCanceled(c.UserContext(), *order); err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Failed to publish cancel event: " + err.Error(),
+				})
+			}
+		}
+
+		order.Deleted = true
+		if err := repo.Update(c.UserContext(), order); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": err.Error(),
+				"error": "Failed to soft-delete order: " + err.Error(),
 			})
 		}
 

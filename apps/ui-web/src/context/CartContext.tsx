@@ -4,6 +4,7 @@ import { createContext, useContext, useReducer, ReactNode } from "react"
 
 interface CartItem {
   productId: string
+  productName: string
   quantity: number
 }
 

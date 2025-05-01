@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ui-web
+  labels:
+    app: ui-web
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: ui-web
+  template:
+    metadata:
+      labels:
+        app: ui-web
+    spec:
+      containers:
+        - name: ui-web
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 3000
+          env:
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.OTEL_EXPORTER_OTLP_ENDPOINT | quote }}
+            - name: NODE_ENV
+              value: {{ .Values.NODE_ENV | quote }}

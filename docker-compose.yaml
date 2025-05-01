@@ -1,6 +1,21 @@
-version: '3.9'
-
 services:
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"
+      - "4571:4571"
+    environment:
+      - SERVICES=dynamodb,sns,sqs
+      - DEBUG=1
+      - DATA_DIR=/var/lib/localstack
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-west-2
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - ./scripts/localstack-init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
   products-service:
     build:
       context: ./apps/products-service
@@ -10,8 +25,12 @@ services:
       - AWS_REGION=us-west-2
       - PRODUCTS_TABLE=products
       - PORT=8080
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT=http://localstack:4566
+      - TEMPO_ENDPOINT=tempo:4318
+    depends_on:
+      - localstack
 
   orders-service:
     build:
@@ -22,8 +41,27 @@ services:
       - AWS_REGION=us-west-2
       - ORDERS_TABLE=orders
       - PORT=8080
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT=http://localstack:4566
+      - ORDERS_TOPIC_ARN=arn:aws:sns:us-west-2:000000000000:orders-topic
+      - TEMPO_ENDPOINT=tempo:4318
+    depends_on:
+      - localstack
+
+  products-worker:
+    build:
+      context: ./apps/products-worker
+    environment:
+      - AWS_REGION=us-west-2
+      - PRODUCTS_TABLE=products
+      - SQS_QUEUE_URL=http://localhost:4566/000000000000/products-queue
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT=http://localstack:4566
+      - TEMPO_ENDPOINT=tempo:4318
+    depends_on:
+      - localstack
 
   ui-web:
     build:
@@ -32,6 +70,10 @@ services:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4318/v1/traces
+      - NODE_ENV=production
+    depends_on:
+      - localstack
 
   ui-backoffice:
     build:
@@ -42,3 +84,34 @@ services:
       - PRODUCT_API_BASE_URL=http://products-service:8080
       - ORDER_API_BASE_URL=http://orders-service:8080
       - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4318/v1/traces
+      - NODE_ENV=production
+    depends_on:
+      - localstack
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana/:/etc/grafana/provisioning/datasources/
+    depends_on:
+      - tempo
+
+  tempo:
+    image: grafana/tempo:latest
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./tempo/:/etc/tempo/
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+      - "14268:14268"
+    restart: unless-stopped
+
+volumes:
+  localstack_data:

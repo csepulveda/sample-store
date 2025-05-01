@@ -1,0 +1,13 @@
+replicaCount: 1
+
+image:
+  repository: ui-web
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3000
+
+OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+NODE_ENV: production

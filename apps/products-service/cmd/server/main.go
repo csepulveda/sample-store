@@ -5,22 +5,47 @@ import (
 	"log"
 	"os"
 
+	"github.com/gofiber/contrib/otelfiber"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
 
 	"products-service/internal/handlers"
 	"products-service/internal/repository"
+	"products-service/internal/tracing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
 func main() {
-	awsRegion := getEnv("AWS_REGION", "us-west-2")
+	tempoEndpoint := getEnv("TEMPO_ENDPOINT", "tempo:4318")
+	tp := tracing.InitTracer("products-service", tempoEndpoint)
+	defer func() {
+		if err := tp.Shutdown(context.Background()); err != nil {
+			log.Printf("Error shutting down tracer provider: %v", err)
+		}
+	}()
+
 	productsTable := getEnv("PRODUCTS_TABLE", "products")
 
+	awsEndpoint := getEnv("AWS_ENDPOINT", "")
+	awsRegion := getEnv("AWS_REGION", "us-west-2")
+
+	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+		if awsEndpoint != "" {
+			return aws.Endpoint{
+				PartitionID:   "aws",
+				URL:           awsEndpoint,
+				SigningRegion: awsRegion,
+			}, nil
+		}
+
+		// returning EndpointNotFoundError will allow the service to fallback to it's default resolution
+		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+	})
+
 	// Cargar configuración AWS
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(awsRegion))
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver))
 	if err != nil {
 		log.Fatalf("unable to load AWS SDK config: %v", err)
 	}
@@ -30,11 +55,7 @@ func main() {
 
 	app := fiber.New()
 
-	// Middleware Cors
-	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-	}))
+	app.Use(otelfiber.Middleware())
 
 	// Healthcheck
 	app.Get("/healthz", func(c *fiber.Ctx) error {

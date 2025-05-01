@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: products-service
+  labels:
+    app: products-service
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: products-service
+  template:
+    metadata:
+      labels:
+        app: products-service
+    spec:
+      containers:
+        - name: products-service
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.AWS_REGION | quote }}
+            - name: PRODUCTS_TABLE
+              value: {{ .Values.PRODUCTS_TABLE | quote }}
+            - name: PORT
+              value: {{ .Values.PORT | quote }}
+            - name: TEMPO_ENDPOINT
+              value: {{ .Values.TEMPO_ENDPOINT | quote }}

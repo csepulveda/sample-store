@@ -3,6 +3,7 @@ package handlers
 import (
 	"products-service/internal/domain"
 	"products-service/internal/repository"
+	"products-service/internal/tracing"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -11,6 +12,9 @@ import (
 // CreateProductHandler handles POST /api/products
 func CreateProductHandler(repo repository.ProductRepository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		ctx, span := tracing.NewSpan(c.UserContext(), "CreateProductHandler")
+		defer span.End()
+
 		var product domain.Product
 
 		if err := c.BodyParser(&product); err != nil {
@@ -22,7 +26,7 @@ func CreateProductHandler(repo repository.ProductRepository) fiber.Handler {
 		// Generate UUID for new product
 		product.ID = uuid.New().String()
 
-		if err := repo.Create(&product); err != nil {
+		if err := repo.Create(ctx, &product); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})
@@ -35,10 +39,15 @@ func CreateProductHandler(repo repository.ProductRepository) fiber.Handler {
 // ListProductsHandler handles GET /api/products
 func ListProductsHandler(repo repository.ProductRepository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		ctx, span := tracing.NewSpan(c.UserContext(), "ListProductsHandler")
+		defer span.End()
 		id := c.Params("id")
+		span.SetAttributes(
+			tracing.StringAttribute("productId", id),
+		)
 
 		if id != "" {
-			product, err := repo.GetByID(id)
+			product, err := repo.GetByID(ctx, id)
 			if err != nil {
 				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 					"error": "Product not found",
@@ -47,7 +56,7 @@ func ListProductsHandler(repo repository.ProductRepository) fiber.Handler {
 			return c.JSON(product)
 		}
 
-		products, err := repo.GetAll()
+		products, err := repo.GetAll(ctx)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
@@ -61,9 +70,15 @@ func ListProductsHandler(repo repository.ProductRepository) fiber.Handler {
 // UpdateProductHandler handles PUT /api/products/:id
 func UpdateProductHandler(repo repository.ProductRepository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		id := c.Params("id")
+		ctx, span := tracing.NewSpan(c.UserContext(), "UpdateProductHandler")
+		defer span.End()
 
-		product, err := repo.GetByID(id)
+		id := c.Params("id")
+		span.SetAttributes(
+			tracing.StringAttribute("productId", id),
+		)
+
+		product, err := repo.GetByID(ctx, id)
 		if err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "Product not found",
@@ -78,7 +93,7 @@ func UpdateProductHandler(repo repository.ProductRepository) fiber.Handler {
 
 		product.ID = id // aseguramos que no se modifique el ID
 
-		if err := repo.Update(product); err != nil {
+		if err := repo.Update(ctx, product); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})
@@ -91,9 +106,15 @@ func UpdateProductHandler(repo repository.ProductRepository) fiber.Handler {
 // PatchProductHandler handles PATCH /api/products/:id
 func PatchProductHandler(repo repository.ProductRepository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		ctx, span := tracing.NewSpan(c.UserContext(), "PatchProductHandler")
+		defer span.End()
 		id := c.Params("id")
 
-		product, err := repo.GetByID(id)
+		span.SetAttributes(
+			tracing.StringAttribute("productId", id),
+		)
+
+		product, err := repo.GetByID(ctx, id)
 		if err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "Product not found",
@@ -120,7 +141,7 @@ func PatchProductHandler(repo repository.ProductRepository) fiber.Handler {
 			product.Stock = int(stock)
 		}
 
-		if err := repo.Update(product); err != nil {
+		if err := repo.Update(ctx, product); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})
@@ -133,9 +154,15 @@ func PatchProductHandler(repo repository.ProductRepository) fiber.Handler {
 // DeleteProductHandler handles DELETE /api/products/:id
 func DeleteProductHandler(repo repository.ProductRepository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		ctx, span := tracing.NewSpan(c.UserContext(), "DeleteProductHandler")
+		defer span.End()
 		id := c.Params("id")
 
-		if err := repo.Delete(id); err != nil {
+		span.SetAttributes(
+			tracing.StringAttribute("productId", id),
+		)
+
+		if err := repo.Delete(ctx, id); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})

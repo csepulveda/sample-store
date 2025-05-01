@@ -68,3 +68,21 @@ make helm-install
 ## License
 
 This project is licensed under the MIT License.
+
+## Terraform + Helm.
+### Terraform:
+The EKS cluster (vpc, eks, karpenter)
+The SNS, SQS and dynamo resources.
+The IAM roles to allow pods use AWS services.
+### Helm:
+Deploy the application
+Deploy the monitoring Stack (prometheus, grafana, tempo, loki, promtail)
+
+## KRO + helm
+### KRO
+The EKS cluster (vpc, eks, karpenter)
+The SNS, SQS and dynamo resources.
+The IAM roles to allow pods use AWS services.
+Deploy the application
+### Helm:
+Deploy the monitoring Stack (prometheus, grafana, tempo, loki, promtail)

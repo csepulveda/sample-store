@@ -36,9 +36,26 @@ export function OrderTable({ orders, reload }: { orders: Order[]; reload: () => 
     }
   }
 
-  const filteredOrders = filterStatus === "all" 
-    ? orders 
+  const filteredOrders = filterStatus === "all"
+    ? orders
     : orders.filter(order => order.status === filterStatus)
+
+  const getStatusColorClass = (status: string) => {
+    switch (status) {
+      case "created":
+        return "bg-blue-600"
+      case "shipped":
+        return "bg-yellow-400 text-black"
+      case "delivered":
+        return "bg-green-600"
+      case "returned":
+        return "bg-purple-600"
+      case "canceled":
+        return "bg-red-600"
+      default:
+        return "bg-zinc-800"
+    }
+  }
 
   return (
     <div className="overflow-x-auto bg-zinc-950 p-6 rounded-lg">
@@ -53,6 +70,7 @@ export function OrderTable({ orders, reload }: { orders: Order[]; reload: () => 
           <option value="created">Created</option>
           <option value="shipped">Shipped</option>
           <option value="delivered">Delivered</option>
+          <option value="returned">Returned</option>
           <option value="canceled">Canceled</option>
         </select>
       </div>
@@ -75,11 +93,13 @@ export function OrderTable({ orders, reload }: { orders: Order[]; reload: () => 
                 <select
                   value={order.status}
                   onChange={e => handleStatusChange(order.id, e.target.value)}
-                  className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 w-full text-white"
+                  className={`border border-zinc-600 rounded px-2 py-1 w-full text-white ${getStatusColorClass(order.status)}`}
+                  disabled={saving || order.status === "canceled"} // Optional: disable canceled state
                 >
                   <option value="created">Created</option>
                   <option value="shipped">Shipped</option>
                   <option value="delivered">Delivered</option>
+                  <option value="returned">Returned</option>
                   <option value="canceled">Canceled</option>
                 </select>
               </td>
@@ -88,7 +108,7 @@ export function OrderTable({ orders, reload }: { orders: Order[]; reload: () => 
                 <ul className="list-disc list-inside">
                   {order.items.map((item, idx) => (
                     <li key={idx}>
-                      {item.productId} - Qty: {item.quantity}
+                      {item.productName} - Qty: {item.quantity}
                     </li>
                   ))}
                 </ul>

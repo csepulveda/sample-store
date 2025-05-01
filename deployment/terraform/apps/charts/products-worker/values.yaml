@@ -1,0 +1,15 @@
+replicaCount: 1
+
+image:
+  repository: products-worker
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+AWS_REGION: us-west-2
+PRODUCTS_TABLE: products
+SQS_QUEUE_URL: http://localhost:4566/000000000000/products-queue
+TEMPO_ENDPOINT: tempo:4318

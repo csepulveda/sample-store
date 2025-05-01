@@ -1,0 +1,15 @@
+replicaCount: 1
+
+image:
+  repository: products-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+AWS_REGION: us-west-2
+PRODUCTS_TABLE: products
+PORT: "8080"
+TEMPO_ENDPOINT: tempo:4318

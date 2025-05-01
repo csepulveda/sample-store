@@ -11,7 +11,7 @@ export function ProductCard({ product }: { product: Product }) {
 
   const handleAddToCart = () => {
     if (availableStock <= 0) return
-    dispatch({ type: "ADD_TO_CART", payload: { productId: product.id, quantity: 1 } })
+    dispatch({ type: "ADD_TO_CART", payload: { productId: product.id, productName: product.name, quantity: 1 } })
   }
 
   return (

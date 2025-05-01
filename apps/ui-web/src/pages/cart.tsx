@@ -41,7 +41,7 @@ export default function CartPage() {
         <div className="flex flex-col gap-4 mb-8">
           {cartItems.map((item, idx) => (
             <div key={idx} className="bg-zinc-800 p-4 rounded">
-              <p className="text-white">Product ID: {item.productId}</p>
+              <p className="text-white">Product Name: {item.productName}</p>
               <p className="text-white">Quantity: {item.quantity}</p>
             </div>
           ))}

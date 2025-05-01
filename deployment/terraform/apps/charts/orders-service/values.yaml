@@ -1,0 +1,16 @@
+replicaCount: 1
+
+image:
+  repository: orders-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+AWS_REGION: us-west-2
+ORDERS_TABLE: orders
+PORT: "8080"
+ORDERS_TOPIC_ARN: arn:aws:sns:us-west-2:000000000000:orders-topic
+TEMPO_ENDPOINT: tempo:4318

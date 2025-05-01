@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: products-worker
+  labels:
+    app: products-worker
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: products-worker
+  template:
+    metadata:
+      labels:
+        app: products-worker
+    spec:
+      containers:
+        - name: products-worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.AWS_REGION | quote }}
+            - name: PRODUCTS_TABLE
+              value: {{ .Values.PRODUCTS_TABLE | quote }}
+            - name: SQS_QUEUE_URL
+              value: {{ .Values.SQS_QUEUE_URL | quote }}
+            - name: TEMPO_ENDPOINT
+              value: {{ .Values.TEMPO_ENDPOINT | quote }}

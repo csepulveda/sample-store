@@ -1,0 +1,15 @@
+replicaCount: 1
+
+image:
+  repository: ui-backoffice
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3000
+
+PRODUCT_API_BASE_URL: http://products-service:8080
+ORDER_API_BASE_URL: http://orders-service:8080
+OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+NODE_ENV: production

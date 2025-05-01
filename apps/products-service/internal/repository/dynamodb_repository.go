@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"products-service/internal/domain"
+	"products-service/internal/tracing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -23,21 +24,30 @@ func NewDynamoProductRepository(client *dynamodb.Client, tableName string) *Dyna
 	}
 }
 
-func (r *DynamoProductRepository) Create(product *domain.Product) error {
+func (r *DynamoProductRepository) Create(ctx context.Context, product *domain.Product) error {
+	ctx, span := tracing.NewSpan(ctx, "DynamoProductRepository#Create")
+	defer span.End()
+	span.SetAttributes(
+		tracing.StringAttribute("productId", product.ID),
+	)
+
 	item, err := attributevalue.MarshalMap(product)
 	if err != nil {
 		return err
 	}
 
-	_, err = r.client.PutItem(context.TODO(), &dynamodb.PutItemInput{
+	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(r.tableName),
 		Item:      item,
 	})
 	return err
 }
 
-func (r *DynamoProductRepository) GetAll() ([]domain.Product, error) {
-	output, err := r.client.Scan(context.TODO(), &dynamodb.ScanInput{
+func (r *DynamoProductRepository) GetAll(ctx context.Context) ([]domain.Product, error) {
+	ctx, span := tracing.NewSpan(ctx, "DynamoProductRepository#GetAll")
+	defer span.End()
+
+	output, err := r.client.Scan(ctx, &dynamodb.ScanInput{
 		TableName: aws.String(r.tableName),
 	})
 	if err != nil {
@@ -49,8 +59,14 @@ func (r *DynamoProductRepository) GetAll() ([]domain.Product, error) {
 	return products, err
 }
 
-func (r *DynamoProductRepository) GetByID(id string) (*domain.Product, error) {
-	output, err := r.client.GetItem(context.TODO(), &dynamodb.GetItemInput{
+func (r *DynamoProductRepository) GetByID(ctx context.Context, id string) (*domain.Product, error) {
+	ctx, span := tracing.NewSpan(ctx, "DynamoProductRepository#GetByID")
+	defer span.End()
+	span.SetAttributes(
+		tracing.StringAttribute("productId", id),
+	)
+
+	output, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
 			"id": &types.AttributeValueMemberS{Value: id},
@@ -69,12 +85,21 @@ func (r *DynamoProductRepository) GetByID(id string) (*domain.Product, error) {
 	return &product, err
 }
 
-func (r *DynamoProductRepository) Update(product *domain.Product) error {
-	return r.Create(product)
+func (r *DynamoProductRepository) Update(ctx context.Context, product *domain.Product) error {
+	ctx, span := tracing.NewSpan(ctx, "DynamoProductRepository#Update")
+	defer span.End()
+
+	return r.Create(ctx, product)
 }
 
-func (r *DynamoProductRepository) Delete(id string) error {
-	_, err := r.client.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
+func (r *DynamoProductRepository) Delete(ctx context.Context, id string) error {
+	ctx, span := tracing.NewSpan(ctx, "DynamoProductRepository#Delete")
+	defer span.End()
+	span.SetAttributes(
+		tracing.StringAttribute("productId", id),
+	)
+
+	_, err := r.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
 			"id": &types.AttributeValueMemberS{Value: id},

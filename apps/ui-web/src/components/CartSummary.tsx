@@ -41,7 +41,7 @@ export function CartSummary() {
         <ul className="mb-4">
           {cartItems.map((item, idx) => (
             <li key={idx} className="text-white">
-              {item.productId} - Qty: {item.quantity}
+              {item.productName} - Qty: {item.quantity}
             </li>
           ))}
         </ul>
