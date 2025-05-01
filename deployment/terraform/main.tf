@@ -4,18 +4,18 @@
 data "aws_availability_zones" "available" {}
 
 locals {
-  name = format("%s-%s", var.environment, var.project_name)
+  name   = format("%s-%s", var.environment, var.project_name)
   region = var.aws_region
 
   vpc_cidr = var.vpc_cidr
   azs      = slice(data.aws_availability_zones.available.names, 0, 3)
 
   tags = {
-    CreatedBy = "csepulveda"
-    Owner     = "cesar.sepulveda.b@gmail.com"
-    Project   = var.project_name
+    CreatedBy   = "csepulveda"
+    Owner       = "cesar.sepulveda.b@gmail.com"
+    Project     = var.project_name
     Environment = var.environment
-    OpenTofu = "true"
+    OpenTofu    = "true"
   }
 }
 
@@ -113,8 +113,8 @@ module "eks" {
     "karpenter.sh/discovery" = local.name
   })
 
-  tags = local.tags
-  depends_on = [ module.vpc ]
+  tags       = local.tags
+  depends_on = [module.vpc]
 }
 
 ################################################################################
@@ -137,7 +137,7 @@ module "karpenter" {
 
   tags = local.tags
 
-  depends_on = [ module.eks ]
+  depends_on = [module.eks]
 }
 
 ################################################################################
@@ -167,7 +167,7 @@ resource "helm_release" "karpenter" {
     EOT
   ]
 
-  depends_on = [ module.karpenter ]
+  depends_on = [module.karpenter]
 }
 
 resource "kubernetes_manifest" "ec2_node_class" {
@@ -203,7 +203,7 @@ resource "kubernetes_manifest" "ec2_node_class" {
       }
     }
   }
-  depends_on = [ helm_release.karpenter ]
+  depends_on = [helm_release.karpenter]
 }
 
 resource "kubernetes_manifest" "node_pool" {
@@ -260,7 +260,7 @@ resource "kubernetes_manifest" "node_pool" {
     }
   }
 
-  depends_on = [ helm_release.karpenter ]
+  depends_on = [helm_release.karpenter]
 }
 
 ################################################################################
@@ -280,20 +280,20 @@ module "ebs_cni_irsa_role" {
     }
   }
 
-  depends_on = [ module.eks ]
+  depends_on = [module.eks]
 }
 
 resource "aws_eks_addon" "aws_ebs_csi_driver" {
-  cluster_name = local.name
-  addon_name   = "aws-ebs-csi-driver"
+  cluster_name             = local.name
+  addon_name               = "aws-ebs-csi-driver"
   service_account_role_arn = module.ebs_cni_irsa_role.iam_role_arn
-  configuration_values       = jsonencode({
+  configuration_values = jsonencode({
     defaultStorageClass = {
       enabled = true
     }
   })
 
-  depends_on = [ module.ebs_cni_irsa_role ]
+  depends_on = [module.ebs_cni_irsa_role]
 }
 
 # resource "kubernetes_manifest" "gp2_storage_class" {
@@ -389,7 +389,7 @@ resource "aws_sqs_queue_policy" "allow_sns" {
 module "alb_irsa_role" {
   source = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
 
-  role_name = "aws-load-balancer-controller"
+  role_name                              = "aws-load-balancer-controller"
   attach_load_balancer_controller_policy = true
 
   oidc_providers = {
@@ -398,16 +398,16 @@ module "alb_irsa_role" {
       namespace_service_accounts = ["kube-system:aws-load-balancer-controller"]
     }
   }
-  tags = local.tags
-  depends_on = [ module.eks ]
+  tags       = local.tags
+  depends_on = [module.eks]
 }
 
 resource "helm_release" "aws-load-balancer-controller" {
-  namespace           = "kube-system"
-  name                = "aws-load-balancer-controller"
-  repository          = "https://aws.github.io/eks-charts"
-  chart               = "aws-load-balancer-controller"
-  wait                = true
+  namespace  = "kube-system"
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  wait       = true
 
   values = [
     <<-EOT
@@ -424,7 +424,7 @@ resource "helm_release" "aws-load-balancer-controller" {
         vpc-id: ${module.vpc.vpc_id}
     EOT
   ]
-  depends_on = [ module.alb_irsa_role ]
+  depends_on = [module.alb_irsa_role]
 }
 
 
@@ -525,8 +525,8 @@ module "loki_irsa_role" {
     }
   }
 
-  tags = local.tags
-  depends_on = [ module.eks ]
+  tags       = local.tags
+  depends_on = [module.eks]
 
 }
 
@@ -546,8 +546,8 @@ module "tempo_irsa_role" {
     }
   }
 
-  tags = local.tags
-  depends_on = [ module.eks ]
+  tags       = local.tags
+  depends_on = [module.eks]
 
 }
 
@@ -567,8 +567,8 @@ module "thanos_irsa_role" {
     }
   }
 
-  tags = local.tags
-  depends_on = [ module.eks ]
+  tags       = local.tags
+  depends_on = [module.eks]
 
 }
 
@@ -632,7 +632,7 @@ resource "helm_release" "prometheus_stack" {
     EOT
   ]
 
-  depends_on = [ module.thanos_irsa_role ]
+  depends_on = [module.thanos_irsa_role]
 
 }
 
@@ -655,7 +655,7 @@ resource "helm_release" "promtail" {
     EOT
   ]
 
-  depends_on = [ module.eks ]
+  depends_on = [module.eks]
 }
 
 ################################################################################
@@ -723,7 +723,7 @@ resource "helm_release" "loki" {
     EOT
   ]
 
-  depends_on = [ module.loki_irsa_role ]
+  depends_on = [module.loki_irsa_role]
 
 }
 
@@ -757,6 +757,6 @@ resource "helm_release" "tempo" {
             endpoint: "s3.${var.aws_region}.amazonaws.com"
     EOT
   ]
-  depends_on = [ module.tempo_irsa_role ]
+  depends_on = [module.tempo_irsa_role]
 
 }
